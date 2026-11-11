@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tikaa: child vaccination schedule for India</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#EEF3F9;--ink:#0E1B2C;--muted:#52627A;--primary:#2B59C3;--next:#E5446D;--done:#3C8D6B;--line:#C9D4E4}
+body[data-release="green"]{--primary:#0F8A6D}
+*{box-sizing:border-box;margin:0}
+body{background:var(--paper);color:var(--ink);font:400 17px/1.6 "Instrument Sans",system-ui,sans-serif}
+.wrap{max-width:880px;margin:0 auto;padding:0 24px}
+header{padding:28px 0}
+.brand{font:800 26px "Bricolage Grotesque",Georgia,serif;color:var(--primary);display:flex;align-items:center;gap:10px}
+.brand i{width:14px;height:14px;border-radius:50% 50% 50% 0;background:var(--next);transform:rotate(-45deg)}
+.hero{padding:48px 0 40px}
+h1{font:800 clamp(40px,8vw,76px)/1 "Bricolage Grotesque",Georgia,serif;letter-spacing:-.03em;max-width:12ch}
+.lead{color:var(--muted);max-width:52ch;margin:20px 0 32px}
+form{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+label{display:block;font-weight:600;font-size:15px;margin-bottom:6px}
+input{font:inherit;padding:14px 16px;border:2px solid var(--ink);border-radius:10px;background:#fff;color:var(--ink)}
+button{font:600 17px "Instrument Sans",sans-serif;padding:16px 26px;border:0;border-radius:10px;background:var(--primary);color:#fff;cursor:pointer}
+button:hover{filter:brightness(1.12)}
+:focus-visible{outline:3px solid var(--next);outline-offset:3px}
+#out{display:none;padding-bottom:56px}
+.next{background:var(--ink);color:#fff;border-radius:18px;padding:26px 28px;margin-bottom:44px}
+.next b{font:800 34px "Bricolage Grotesque",Georgia,serif;display:block}
+.next span{color:#B9C6DA}
+ol{list-style:none;padding:0 0 0 30px;border-left:3px solid var(--line);margin-left:8px}
+li{position:relative;padding:0 0 34px}
+li::before{content:"";position:absolute;left:-41px;top:7px;width:16px;height:16px;border-radius:50%;background:var(--paper);border:3px solid var(--primary)}
+li.done::before{background:var(--done);border-color:var(--done)}
+li.done{opacity:.62}
+li.next-up::before{background:var(--next);border-color:var(--next);box-shadow:0 0 0 6px rgba(229,68,109,.2)}
+li.today{padding:0 0 30px;color:var(--next);font-weight:600}
+li.today::before{content:"";left:-34px;top:12px;width:30px;height:3px;border:0;border-radius:2px;background:var(--next)}
+h2{font:800 24px "Bricolage Grotesque",Georgia,serif}
+.date{color:var(--muted);font-size:15px;margin-bottom:8px}
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.pills span{background:#fff;border:1.5px solid var(--line);border-radius:999px;padding:3px 13px;font-size:15px}
+footer{border-top:1px solid var(--line);padding:28px 0 48px;color:var(--muted);font-size:14px}
+footer p{max-width:62ch;margin-bottom:10px}
+.rel{display:inline-block;background:var(--primary);color:#fff;border-radius:999px;padding:2px 12px;font-weight:600}
+</style>
+</head>
+<body data-release="{{ color }}">
+<div class="wrap">
+<header><div class="brand"><i></i>Tikaa</div></header>
+<section class="hero">
+<h1>Every vaccine, on its date.</h1>
+<p class="lead">Enter your child's date of birth and see which vaccines under India's Universal Immunisation Programme are done, which is next, and when.</p>
+<form id="f">
+<div><label for="dob">Child's date of birth</label><input type="date" id="dob" required></div>
+<button type="submit">Build schedule</button>
+</form>
+</section>
+<section id="out" aria-live="polite">
+<div class="next" id="next"></div>
+<ol id="tl"></ol>
+</section>
+<footer>
+<p>Your child's date of birth stays in this browser. It is never sent to or stored on our server.</p>
+<p>Sample schedule based on the Universal Immunisation Programme. Always confirm dates with your paediatrician or nearest health centre.</p>
+<span class="rel">Release {{ version }} ({{ color }})</span>
+</footer>
+</div>
+<script>
+var S=[
+{a:"At birth",u:"d",n:0,v:["BCG","OPV 0","Hepatitis B (birth dose)"]},
+{a:"6 weeks",u:"d",n:42,v:["OPV 1","Pentavalent 1","Rotavirus 1","fIPV 1","PCV 1"]},
+{a:"10 weeks",u:"d",n:70,v:["OPV 2","Pentavalent 2","Rotavirus 2"]},
+{a:"14 weeks",u:"d",n:98,v:["OPV 3","Pentavalent 3","Rotavirus 3","fIPV 2","PCV 2"]},
+{a:"9 months",u:"m",n:9,v:["Measles-Rubella 1","fIPV 3","PCV booster"]},
+{a:"16 to 24 months",u:"m",n:16,v:["Measles-Rubella 2","DPT booster 1","OPV booster"]},
+{a:"5 to 6 years",u:"y",n:5,v:["DPT booster 2"]},
+{a:"10 years",u:"y",n:10,v:["Td"]},
+{a:"16 years",u:"y",n:16,v:["Td"]}];
+function due(b,m){var d=new Date(b);if(m.u=="d")d.setDate(d.getDate()+m.n);else if(m.u=="m")d.setMonth(d.getMonth()+m.n);else d.setFullYear(d.getFullYear()+m.n);return d}
+function fmt(d){return d.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}
+document.getElementById("f").addEventListener("submit",function(e){
+e.preventDefault();
+var b=new Date(document.getElementById("dob").value),t=new Date();t.setHours(0,0,0,0);
+var rows=S.map(function(m){return{m:m,d:due(b,m)}});
+var ni=rows.findIndex(function(r){return r.d>=t});
+var h="";
+rows.forEach(function(r,i){
+if(i==ni)h+='<li class="today">Today, '+fmt(t)+'</li>';
+var c=i<ni||ni<0?"done":(i==ni?"next-up":"");
+h+='<li class="'+c+'"><h2>'+r.m.a+'</h2><div class="date">'+fmt(r.d)+'</div><div class="pills">'+r.m.v.map(function(x){return"<span>"+x+"</span>"}).join("")+"</div></li>"});
+document.getElementById("tl").innerHTML=h;
+var n=document.getElementById("next");
+if(ni<0){n.innerHTML="<b>Schedule complete</b><span>All sample milestones are behind you.</span>"}
+else{var days=Math.round((rows[ni].d-t)/864e5);n.innerHTML="<b>Next: "+rows[ni].m.a+"</b><span>"+fmt(rows[ni].d)+(days==0?", today":", in "+days+" days")+"</span>"}
+var o=document.getElementById("out");o.style.display="block";o.scrollIntoView({behavior:"smooth"});
+});
+</script>
+</body>
+</html>
