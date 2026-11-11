@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tikaa-blue
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tikaa
+      color: blue
+  template:
+    metadata:
+      labels:
+        app: tikaa
+        color: blue
+    spec:
+      containers:
+        - name: tikaa
+          image: tikaa:2
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5000
+          env:
+            - name: APP_VERSION
+              value: "v1"
+            - name: APP_COLOR
+              value: "blue"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5

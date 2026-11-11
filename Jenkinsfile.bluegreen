@@ -1,0 +1,117 @@
+pipeline {
+    agent any
+
+    environment {
+        KUBECONFIG = '/etc/rancher/k3s/k3s.yaml'
+    }
+
+    stages {
+        stage('1. Build Docker Image') {
+            steps {
+                sh '''
+                    docker build -t tikaa:$BUILD_NUMBER .
+                    docker save tikaa:$BUILD_NUMBER | sudo /usr/local/bin/k3s ctr images import -
+                '''
+            }
+        }
+
+        stage('2. Identify Deployment') {
+            steps {
+                script {
+                    env.ACTIVE_COLOR = sh(
+                        script: "kubectl get service tikaa -o jsonpath='{.spec.selector.color}'",
+                        returnStdout: true
+                    ).trim()
+
+                    if (!env.ACTIVE_COLOR) {
+                        error('Service has no active color. Initialize Blue deployment first.')
+                    }
+
+                    env.NEW_COLOR = env.ACTIVE_COLOR == 'blue' ? 'green' : 'blue'
+                    env.NEW_VERSION = "v${env.BUILD_NUMBER}"
+
+                    echo "Active: ${env.ACTIVE_COLOR} | New release: ${env.NEW_COLOR}"
+                }
+            }
+        }
+
+        stage('3. Deploy Inactive Environment') {
+            steps {
+                sh '''
+                    cat <<MANIFEST | kubectl apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tikaa-${NEW_COLOR}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tikaa
+      color: ${NEW_COLOR}
+  template:
+    metadata:
+      labels:
+        app: tikaa
+        color: ${NEW_COLOR}
+    spec:
+      containers:
+        - name: tikaa
+          image: tikaa:${BUILD_NUMBER}
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5000
+          env:
+            - name: APP_VERSION
+              value: "${NEW_VERSION}"
+            - name: APP_COLOR
+              value: "${NEW_COLOR}"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+MANIFEST
+
+                    kubectl rollout status deployment/tikaa-${NEW_COLOR} --timeout=120s
+                '''
+            }
+        }
+
+        stage('4. Test New Release') {
+            steps {
+                sh '''
+                    kubectl exec deployment/tikaa-${NEW_COLOR} -- python -c "import urllib.request; r=urllib.request.urlopen('http://localhost:5000/health', timeout=5); data=r.read().decode(); print(data); assert r.status == 200 and '${NEW_COLOR}' in data"
+                '''
+            }
+        }
+
+        stage('5. Switch Live Traffic') {
+            steps {
+                sh '''
+                    kubectl patch service tikaa --type merge -p '{"spec":{"selector":{"app":"tikaa","color":"'${NEW_COLOR}'"}}}'
+                    sleep 5
+
+                    if ! curl --fail --silent http://localhost:30080/health; then
+                        echo "New release failed. Rolling back to ${ACTIVE_COLOR}."
+                        kubectl patch service tikaa --type merge -p '{"spec":{"selector":{"app":"tikaa","color":"'${ACTIVE_COLOR}'"}}}'
+                        exit 1
+                    fi
+
+                    echo "Traffic successfully switched to ${NEW_COLOR}."
+                    curl --fail http://localhost:30080/health
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'BLUE-GREEN DEPLOYMENT SUCCESSFUL!'
+        }
+        failure {
+            echo 'Deployment failed. Check Console Output and the active Service selector.'
+        }
+    }
+}
