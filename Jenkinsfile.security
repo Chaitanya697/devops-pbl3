@@ -66,9 +66,12 @@ pipeline {
                 sh '''
                     trivy image \
                       --cache-dir "$TRIVY_CACHE" \
+                      --skip-db-update \
+                      --skip-java-db-update \
                       --scanners vuln \
                       --severity HIGH,CRITICAL \
                       --exit-code 1 \
+                      --timeout 3m \
                       --format json \
                       --output security-reports/trivy-image.json \
                       "$IMAGE_NAME"
