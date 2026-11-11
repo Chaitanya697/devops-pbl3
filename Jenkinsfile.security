@@ -1,0 +1,87 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'tikaa:devsecops'
+        REPORT_DIR = 'security-reports'
+        TRIVY_CACHE = '/tmp/trivy-cache'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'mkdir -p security-reports'
+            }
+        }
+
+        stage('Prepare Tools') {
+            steps {
+                sh '''
+                    python3 -m venv .security-venv
+                    .security-venv/bin/pip install --no-cache-dir bandit pip-audit
+                    bandit --version || .security-venv/bin/bandit --version
+                    gitleaks version
+                    trivy --version
+                '''
+            }
+        }
+
+        stage('Python Security - Bandit') {
+            steps {
+                sh '''
+                    .security-venv/bin/bandit -r app.py \
+                      -f json -o security-reports/bandit.json
+                '''
+            }
+        }
+
+        stage('Dependency Security - pip-audit') {
+            steps {
+                sh '''
+                    .security-venv/bin/pip-audit -r requirements.txt \
+                      -f json -o security-reports/pip-audit.json
+                '''
+            }
+        }
+
+        stage('Secret Detection - Gitleaks') {
+            steps {
+                sh '''
+                    gitleaks git . --report-format json \
+                      --report-path security-reports/gitleaks.json \
+                      --redact --no-banner
+                '''
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t tikaa:devsecops .'
+            }
+        }
+
+        stage('Container Security - Trivy') {
+            steps {
+                sh '''
+                    trivy image \
+                      --cache-dir "$TRIVY_CACHE" \
+                      --scanners vuln \
+                      --severity HIGH,CRITICAL \
+                      --exit-code 1 \
+                      --format json \
+                      --output security-reports/trivy-image.json \
+                      "$IMAGE_NAME"
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'security-reports/**',
+                             allowEmptyArchive: true
+            echo 'Security reports archived. Review all findings.'
+        }
+    }
+}
