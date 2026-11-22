@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: tikaa
-          image: tikaa:2
+          image: tikaa:bootstrap
           imagePullPolicy: Never
           ports:
             - containerPort: 5000

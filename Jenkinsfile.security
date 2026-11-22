@@ -11,7 +11,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                sh 'mkdir -p security-reports'
+                sh 'mkdir -p $REPORT_DIR'
             }
         }
 
@@ -19,8 +19,8 @@ pipeline {
             steps {
                 sh '''
                     python3 -m venv .security-venv
-                    .security-venv/bin/pip install --no-cache-dir bandit pip-audit
-                    bandit --version || .security-venv/bin/bandit --version
+                    .security-venv/bin/pip install --quiet --no-cache-dir bandit pip-audit
+                    .security-venv/bin/bandit --version
                     gitleaks version
                     trivy --version
                 '''
@@ -31,7 +31,7 @@ pipeline {
             steps {
                 sh '''
                     .security-venv/bin/bandit -r app.py \
-                      -f json -o security-reports/bandit.json
+                      -f json -o $REPORT_DIR/bandit.json
                 '''
             }
         }
@@ -40,7 +40,7 @@ pipeline {
             steps {
                 sh '''
                     .security-venv/bin/pip-audit -r requirements.txt \
-                      -f json -o security-reports/pip-audit.json
+                      -f json -o $REPORT_DIR/pip-audit.json
                 '''
             }
         }
@@ -49,7 +49,7 @@ pipeline {
             steps {
                 sh '''
                     gitleaks git . --report-format json \
-                      --report-path security-reports/gitleaks.json \
+                      --report-path $REPORT_DIR/gitleaks.json \
                       --redact --no-banner
                 '''
             }
@@ -57,15 +57,20 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t tikaa:devsecops .'
+                sh 'docker build -t $IMAGE_NAME .'
             }
         }
 
         stage('Container Security - Trivy') {
             steps {
-                sh """
-                    trivy image --timeout 2m                       --scanners vuln                       --format json                       --output security-reports/trivy-image.json                       "$IMAGE_NAME"
-                """
+                sh '''
+                    trivy image --timeout 2m \
+                      --cache-dir "$TRIVY_CACHE" \
+                      --scanners vuln \
+                      --format json \
+                      --output "$REPORT_DIR/trivy-image.json" \
+                      "$IMAGE_NAME"
+                '''
             }
         }
     }

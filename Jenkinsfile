@@ -2,6 +2,15 @@ pipeline {
   agent any
   environment { KUBECONFIG = '/etc/rancher/k3s/k3s.yaml' }
   stages {
+    stage('Test') {
+      steps {
+        sh '''
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet -r requirements-dev.txt
+          .venv/bin/pytest -q
+        '''
+      }
+    }
     stage('Build Docker image') {
       steps { sh 'docker build -t tikaa:$BUILD_NUMBER .' }
     }

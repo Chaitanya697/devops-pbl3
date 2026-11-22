@@ -1,0 +1,15 @@
+# Service for the blue-green pipeline: traffic goes to whichever color the selector names.
+# Jenkinsfile.bluegreen flips spec.selector.color between blue and green.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tikaa
+spec:
+  type: NodePort
+  selector:
+    app: tikaa
+    color: blue
+  ports:
+    - port: 80
+      targetPort: 5000
+      nodePort: 30080

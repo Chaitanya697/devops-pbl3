@@ -24,7 +24,7 @@ pipeline {
                     ).trim()
 
                     if (!env.ACTIVE_COLOR) {
-                        error('Service has no active color. Initialize Blue deployment first.')
+                        error('Service tikaa has no color selector. Run the one-time blue-green setup from the README first.')
                     }
 
                     env.NEW_COLOR = env.ACTIVE_COLOR == 'blue' ? 'green' : 'blue'
@@ -108,10 +108,10 @@ MANIFEST
 
     post {
         success {
-            echo 'BLUE-GREEN DEPLOYMENT SUCCESSFUL!'
+            echo "Blue-green release complete: ${env.NEW_COLOR} (${env.NEW_VERSION}) is live."
         }
         failure {
-            echo 'Deployment failed. Check Console Output and the active Service selector.'
+            echo 'Release failed. Check the console output and the Service selector (kubectl get svc tikaa -o yaml).'
         }
     }
 }

@@ -1,0 +1,13 @@
+.git
+.gitignore
+.gitleaksignore
+.dockerignore
+Jenkinsfile*
+k8s/
+security-reports/
+tests/
+README.md
+.security-venv/
+.venv/
+__pycache__/
+*.pyc
